@@ -1,5 +1,5 @@
--- Sailo Peace - Auto Teleport to Saved Position with Tween + Real Key Press
--- Fix: Bấm phím thực tế từ bàn phím (không simulate)
+-- Sailo Peace - Auto Teleport to Saved Position with Tween
+-- Simplified: Không cần Key Spam simulate (game không hỗ trợ)
 
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -13,17 +13,12 @@ end
 if _G.SailoPeace_LoopId == nil then
     _G.SailoPeace_LoopId = 0
 end
-if _G.SailoPeace_KeySpamEnabled == nil then
-    _G.SailoPeace_KeySpamEnabled = false
-end
 if _G.SailoPeace_LockPosition == nil then
     _G.SailoPeace_LockPosition = false
 end
 
 local currentDelay = 30
 local TWEEN_SPEED = 300
-local minRandomDelay = 0.02
-local maxRandomDelay = 0.08
 
 -- Lấy HumanoidRootPart của nhân vật hiện tại
 local function getRoot()
@@ -40,53 +35,6 @@ local function calculateTweenTime(fromCFrame, toCFrame)
     return distance / TWEEN_SPEED
 end
 
--- CÁCH MỚI: Kiểm tra phím được bấm thực tế từ bàn phím
-local isSpamming = false
-local function startRealKeySpam()
-    if isSpamming then return end
-    isSpamming = true
-    
-    print("⌨️ Real Key Spam đã bắt đầu - Hãy giữ cửa sổ game trong focus!")
-    print("📝 Spam sẽ tự động ấn CXZVF liên tục mỗi 0.05 giây")
-    
-    spawn(function()
-        while _G.SailoPeace_KeySpamEnabled and isSpamming do
-            -- Ấn từng phím
-            if UserInputService:IsKeyDown(Enum.KeyCode.C) then
-                -- C đã được ấn
-            else
-                -- Tự động ấn C
-                task.wait(0.05)
-            end
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.X) then
-                -- X đã được ấn
-            else
-                task.wait(0.05)
-            end
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.Z) then
-                -- Z đã được ấn
-            else
-                task.wait(0.05)
-            end
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.V) then
-                -- V đã được ấn
-            else
-                task.wait(0.05)
-            end
-            
-            if UserInputService:IsKeyDown(Enum.KeyCode.F) then
-                -- F đã được ấn
-            else
-                task.wait(0.05)
-            end
-        end
-        isSpamming = false
-    end)
-end
-
 -- Tạo GUI
 local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild("SailoPeaceAuto")
 if existingGui then
@@ -98,7 +46,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 420)
+mainFrame.Size = UDim2.new(0, 300, 0, 370)
 mainFrame.Position = UDim2.new(0.5, -150, 0.4, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
@@ -110,7 +58,7 @@ mainFrame.Parent = screenGui
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 45)
 title.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-title.Text = "🌊 Sailo Peace - Auto Teleport + KeySpam"
+title.Text = "🌊 Sailo Peace - Auto Teleport"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
@@ -197,34 +145,12 @@ lockBtn.TextColor3 = Color3.new(1,1,1)
 lockBtn.TextScaled = true
 lockBtn.Parent = mainFrame
 
--- Nút Bật/Tắt Auto Key Spam
-local keySpamBtn = Instance.new("TextButton")
-keySpamBtn.Size = UDim2.new(0.9, 0, 0, 45)
-keySpamBtn.Position = UDim2.new(0.05, 0, 0, 275)
-keySpamBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-keySpamBtn.Text = "🟠 KEY SPAM (MANUAL)"
-keySpamBtn.TextColor3 = Color3.new(1,1,1)
-keySpamBtn.TextScaled = true
-keySpamBtn.Parent = mainFrame
-
--- Info label
-local infoLabel = Instance.new("TextLabel")
-infoLabel.Size = UDim2.new(0.9, 0, 0, 60)
-infoLabel.Position = UDim2.new(0.05, 0, 0, 330)
-infoLabel.BackgroundTransparency = 0.8
-infoLabel.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-infoLabel.Text = "📝 Key Spam: Bấm & giữ phím C, X, Z, V, F\n⌨️ Game sẽ nhận diện input thực tế"
-infoLabel.TextColor3 = Color3.new(0, 0, 0)
-infoLabel.TextScaled = true
-infoLabel.TextWrapped = true
-infoLabel.Parent = mainFrame
-
 -- Status label
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(0.9, 0, 0, 50)
-status.Position = UDim2.new(0.05, 0, 0, 395)
+status.Size = UDim2.new(0.9, 0, 0, 80)
+status.Position = UDim2.new(0.05, 0, 0, 275)
 status.BackgroundTransparency = 1
-status.Text = "Trạng thái: Chưa lưu vị trí\n"
+status.Text = "Trạng thái: Chưa lưu vị trí\n\n⌨️ Bấm phím thực tế từ bàn phím:\nC, X, Z, V, F để sử dụng skill"
 status.TextColor3 = Color3.fromRGB(200, 200, 200)
 status.TextScaled = true
 status.TextWrapped = true
@@ -297,9 +223,9 @@ saveBtn.MouseButton1Click:Connect(function()
     local root = getRoot()
     if root then
         _G.SailoPeace_SavedCFrame = root.CFrame
-        status.Text = "✅ Đã lưu vị trí!\nSẵn sàng Auto"
+        status.Text = "✅ Đã lưu vị trí!\nSẵn sàng Auto\n\n⌨️ Bấm phím: C, X, Z, V, F"
         task.wait(1.5)
-        status.Text = "Trạng thái: Sẵn sàng Auto"
+        status.Text = "Trạng thái: Sẵn sàng Auto\n\n⌨️ Bấm phím: C, X, Z, V, F"
     end
 end)
 
@@ -309,20 +235,20 @@ toggleBtn.MouseButton1Click:Connect(function()
 
     if _G.SailoPeace_IsAutoEnabled then
         if not _G.SailoPeace_SavedCFrame then
-            status.Text = "❌ Chưa lưu vị trí!\n"
+            status.Text = "❌ Chưa lưu vị trí!\n\n⌨️ Bấm phím: C, X, Z, V, F"
             _G.SailoPeace_IsAutoEnabled = false
             task.wait(2)
-            status.Text = "Trạng thái: Chưa lưu vị trí"
+            status.Text = "Trạng thái: Chưa lưu vị trí\n\n⌨️ Bấm phím: C, X, Z, V, F"
             return
         end
         toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
-        status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s"
+        status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s\n\n⌨️ Bấm phím: C, X, Z, V, F"
         startAutoLoop()
     else
         toggleBtn.Text = "🔴 BẬT AUTO BAY VỀ"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-        status.Text = "❌ Auto bay về tắt"
+        status.Text = "❌ Auto bay về tắt\n\n⌨️ Bấm phím: C, X, Z, V, F"
     end
 end)
 
@@ -332,37 +258,21 @@ lockBtn.MouseButton1Click:Connect(function()
 
     if _G.SailoPeace_LockPosition then
         if not _G.SailoPeace_SavedCFrame then
-            status.Text = "❌ Chưa lưu vị trí!\n"
+            status.Text = "❌ Chưa lưu vị trí!\n\n⌨️ Bấm phím: C, X, Z, V, F"
             _G.SailoPeace_LockPosition = false
             task.wait(2)
-            status.Text = "Trạng thái: Chưa lưu vị trí"
+            status.Text = "Trạng thái: Chưa lưu vị trí\n\n⌨️ Bấm phím: C, X, Z, V, F"
             return
         end
         lockBtn.Text = "🟣 ĐANG LOCK VỊ TRÍ"
         lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
-        status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)"
+        status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)\n\n⌨️ Bấm phím: C, X, Z, V, F"
         startLockPosition()
     else
         lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
         lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
-        status.Text = "🔓 Lock vị trí tắt"
+        status.Text = "🔓 Lock vị trí tắt\n\n⌨️ Bấm phím: C, X, Z, V, F"
         stopLockPosition()
-    end
-end)
-
--- ============ TOGGLE AUTO KEY SPAM ============
-keySpamBtn.MouseButton1Click:Connect(function()
-    _G.SailoPeace_KeySpamEnabled = not _G.SailoPeace_KeySpamEnabled
-
-    if _G.SailoPeace_KeySpamEnabled then
-        keySpamBtn.Text = "🟡 KEY SPAM MONITORING"
-        keySpamBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 50)
-        status.Text = "⌨️ Key Spam Active\n(Bấm C, X, Z, V, F liên tục)"
-        startRealKeySpam()
-    else
-        keySpamBtn.Text = "🟠 KEY SPAM (MANUAL)"
-        keySpamBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
-        status.Text = "⌨️ Key Spam Tắt"
     end
 end)
 
@@ -370,9 +280,9 @@ end)
 player.CharacterAdded:Connect(function(newCharacter)
     newCharacter:WaitForChild("HumanoidRootPart")
     if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
-        status.Text = "♻️ Respawn - Tiếp tục Auto..."
+        status.Text = "♻️ Respawn - Tiếp tục Auto...\n\n⌨️ Bấm phím: C, X, Z, V, F"
         task.wait(1)
-        status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s"
+        status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s\n\n⌨️ Bấm phím: C, X, Z, V, F"
         startAutoLoop()
     end
     if _G.SailoPeace_LockPosition and _G.SailoPeace_SavedCFrame then
@@ -384,25 +294,20 @@ end)
 if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
     toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ"
     toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
-    status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s"
+    status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s\n\n⌨️ Bấm phím: C, X, Z, V, F"
     startAutoLoop()
 elseif _G.SailoPeace_SavedCFrame then
-    status.Text = "Trạng thái: Sẵn sàng Auto"
+    status.Text = "Trạng thái: Sẵn sàng Auto\n\n⌨️ Bấm phím: C, X, Z, V, F"
 end
 
 if _G.SailoPeace_LockPosition and _G.SailoPeace_SavedCFrame then
     lockBtn.Text = "🟣 ĐANG LOCK VỊ TRÍ"
     lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
-    status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)"
+    status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)\n\n⌨️ Bấm phím: C, X, Z, V, F"
     startLockPosition()
 end
 
-if _G.SailoPeace_KeySpamEnabled then
-    keySpamBtn.Text = "🟡 KEY SPAM MONITORING"
-    keySpamBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 50)
-    startRealKeySpam()
-end
-
-print("✅ Sailo Peace v3 - Real Key Detection Mode!")
-print("⌨️ Key Spam: Bấm & giữ phím C, X, Z, V, F trên bàn phím")
-print("📝 Game sẽ nhận diện input thực tế từ bàn phím của bạn")
+print("✅ Sailo Peace v4 - Simplified!")
+print("🎮 Auto Bay Về: Click nút xanh (tween 300 studs/s)")
+print("🔒 Lock Vị Trí: Click nút tím (chống game teleport)")
+print("⌨️ Bấm phím: C, X, Z, V, F trên bàn phím để dùng skill")
