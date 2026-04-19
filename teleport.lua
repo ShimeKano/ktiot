@@ -1,15 +1,31 @@
 -- Sailo Peace - Auto Teleport to Saved Position with Delay
--- Kéo GUI được + Auto bay về + Dropdown fix
+-- Kéo GUI được + Auto bay về + Dropdown fix + Giữ vị trí sau khi chết/reset
 
 local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
 
-local savedCFrame = nil
-local isAutoEnabled = false
+-- Dùng _G để savedCFrame và trạng thái auto tồn tại qua các lần respawn / re-execute
+if _G.SailoPeace_IsAutoEnabled == nil then
+    _G.SailoPeace_IsAutoEnabled = false
+end
+if _G.SailoPeace_LoopId == nil then
+    _G.SailoPeace_LoopId = 0
+end
 local currentDelay = 30  -- mặc định 30 giây
 
--- Tạo GUI
+-- Lấy HumanoidRootPart của nhân vật hiện tại (luôn cập nhật)
+local function getRoot()
+    local char = player.Character
+    if char then
+        return char:FindFirstChild("HumanoidRootPart")
+    end
+    return nil
+end
+
+-- Tạo GUI (chỉ tạo một lần; tái sử dụng nếu đã có)
+local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild("SailoPeaceAuto")
+if existingGui then
+    existingGui:Destroy()
+end
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SailoPeaceAuto"
 screenGui.ResetOnSpawn = false
@@ -115,10 +131,28 @@ status.TextColor3 = Color3.fromRGB(200, 200, 200)
 status.TextScaled = true
 status.Parent = mainFrame
 
+-- Khởi động vòng lặp auto cho nhân vật hiện tại
+-- Dùng LoopId để đảm bảo chỉ có một vòng lặp chạy tại một thời điểm
+local function startAutoLoop()
+    _G.SailoPeace_LoopId = _G.SailoPeace_LoopId + 1
+    local myId = _G.SailoPeace_LoopId
+    spawn(function()
+        while _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame and _G.SailoPeace_LoopId == myId do
+            task.wait(currentDelay)
+            if not _G.SailoPeace_IsAutoEnabled or not _G.SailoPeace_SavedCFrame or _G.SailoPeace_LoopId ~= myId then break end
+            local root = getRoot()
+            if root then
+                root.CFrame = _G.SailoPeace_SavedCFrame
+            end
+        end
+    end)
+end
+
 -- Lưu vị trí
 saveBtn.MouseButton1Click:Connect(function()
+    local root = getRoot()
     if root then
-        savedCFrame = root.CFrame
+        _G.SailoPeace_SavedCFrame = root.CFrame
         status.Text = "✅ Đã lưu vị trí!"
         wait(1.5)
         status.Text = "Trạng thái: Sẵn sàng Auto"
@@ -127,12 +161,12 @@ end)
 
 -- Toggle Auto
 toggleBtn.MouseButton1Click:Connect(function()
-    isAutoEnabled = not isAutoEnabled
-    
-    if isAutoEnabled then
-        if not savedCFrame then
+    _G.SailoPeace_IsAutoEnabled = not _G.SailoPeace_IsAutoEnabled
+
+    if _G.SailoPeace_IsAutoEnabled then
+        if not _G.SailoPeace_SavedCFrame then
             status.Text = "❌ Chưa lưu vị trí!"
-            isAutoEnabled = false
+            _G.SailoPeace_IsAutoEnabled = false
             wait(2)
             status.Text = "Trạng thái: Chưa lưu vị trí"
             return
@@ -140,22 +174,33 @@ toggleBtn.MouseButton1Click:Connect(function()
         toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ..."
         toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
         status.Text = "Auto đang chạy - Delay: " .. currentDelay .. "s"
-        
-        -- Auto loop
-        spawn(function()
-            while isAutoEnabled and root and savedCFrame do
-                task.wait(currentDelay)
-                if isAutoEnabled and root then
-                    root.CFrame = savedCFrame
-                end
-            end
-        end)
-        
+        startAutoLoop()
     else
         toggleBtn.Text = "🔴 BẬT AUTO BAY VỀ"
         toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
         status.Text = "Auto đã tắt"
     end
 end)
+
+-- Khi nhân vật respawn: cập nhật root và tiếp tục auto nếu đang bật
+player.CharacterAdded:Connect(function(newCharacter)
+    newCharacter:WaitForChild("HumanoidRootPart")
+    if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
+        status.Text = "♻️ Respawn - Tiếp tục Auto..."
+        task.wait(1)
+        status.Text = "Auto đang chạy - Delay: " .. currentDelay .. "s"
+        startAutoLoop()
+    end
+end)
+
+-- Đồng bộ trạng thái UI nếu auto đang bật từ lần chạy trước
+if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
+    toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ..."
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
+    status.Text = "Auto đang chạy - Delay: " .. currentDelay .. "s"
+    startAutoLoop()
+elseif _G.SailoPeace_SavedCFrame then
+    status.Text = "Trạng thái: Sẵn sàng Auto"
+end
 
 print("✅ Sailo Peace Auto Teleport đã load! Kéo GUI bằng cách kéo title hoặc khung.")
