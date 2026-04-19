@@ -1,5 +1,5 @@
 -- Sailo Peace - Auto Teleport to Saved Position with Tween + Auto Key Spam
--- Kéo GUI được + Auto bay về + Auto spam phím CXZVF + Dropdown fix + Giữ vị trí sau khi chết/reset
+-- Fix: Bay về vị trí rồi giữ nguyên (không reset)
 
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
@@ -18,8 +18,8 @@ end
 
 local currentDelay = 30  -- mặc định 30 giây
 local TWEEN_SPEED = 300  -- studs per second
-local keySpamDelay = 0.05  -- delay giữa các lần ấn phím (0.05 giây = 20 lần/giây)
-local minRandomDelay = 0.02  -- min random delay (tránh phát hiện)
+local keySpamDelay = 0.05  -- delay giữa các lần ấn phím
+local minRandomDelay = 0.02  -- min random delay
 local maxRandomDelay = 0.08  -- max random delay
 
 -- Lấy HumanoidRootPart của nhân vật hiện tại (luôn cập nhật)
@@ -195,9 +195,14 @@ local function startAutoLoop()
                 -- Tạo và phát Tween
                 local tween = TweenService:Create(root, tweenInfo, goal)
                 tween:Play()
-                tween.Completed:Connect(function()
-                    -- Tween hoàn thành
-                end)
+                
+                -- Đợi tween hoàn thành xong mới tiếp tục vòng lặp
+                tween.Completed:Wait()
+                
+                -- Sau khi bay về, giữ nguyên vị trí (teleport lại một lần nữa để đảm bảo)
+                if _G.SailoPeace_IsAutoEnabled then
+                    root.CFrame = _G.SailoPeace_SavedCFrame
+                end
             end
         end
     end)
