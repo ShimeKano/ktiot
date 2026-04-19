@@ -1,7 +1,8 @@
--- Sailo Peace - Auto Teleport to Saved Position with Delay
--- Kéo GUI được + Auto bay về + Dropdown fix + Giữ vị trí sau khi chết/reset
+-- Sailo Peace - Auto Teleport to Saved Position with Tween (Speed: 300 studs/sec)
+-- Kéo GUI được + Auto bay về với Tween + Dropdown fix + Giữ vị trí sau khi chết/reset
 
 local player = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
 
 -- Dùng _G để savedCFrame và trạng thái auto tồn tại qua các lần respawn / re-execute
 if _G.SailoPeace_IsAutoEnabled == nil then
@@ -11,6 +12,7 @@ if _G.SailoPeace_LoopId == nil then
     _G.SailoPeace_LoopId = 0
 end
 local currentDelay = 30  -- mặc định 30 giây
+local TWEEN_SPEED = 300  -- studs per second
 
 -- Lấy HumanoidRootPart của nhân vật hiện tại (luôn cập nhật)
 local function getRoot()
@@ -19,6 +21,12 @@ local function getRoot()
         return char:FindFirstChild("HumanoidRootPart")
     end
     return nil
+end
+
+-- Hàm tính thời gian tween dựa trên khoảng cách
+local function calculateTweenTime(fromCFrame, toCFrame)
+    local distance = (fromCFrame.Position - toCFrame.Position).Magnitude
+    return distance / TWEEN_SPEED
 end
 
 -- Tạo GUI (chỉ tạo một lần; tái sử dụng nếu đã có)
@@ -44,7 +52,7 @@ mainFrame.Parent = screenGui
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 45)
 title.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-title.Text = "🌊 Sailo Peace - Auto Teleport"
+title.Text = "🌊 Sailo Peace - Auto Teleport (Tween 300 studs/s)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
@@ -131,7 +139,7 @@ status.TextColor3 = Color3.fromRGB(200, 200, 200)
 status.TextScaled = true
 status.Parent = mainFrame
 
--- Khởi động vòng lặp auto cho nhân vật hiện tại
+-- Khởi động vòng lặp auto cho nhân vật hiện tại (sử dụng Tween)
 -- Dùng LoopId để đảm bảo chỉ có một vòng lặp chạy tại một thời điểm
 local function startAutoLoop()
     _G.SailoPeace_LoopId = _G.SailoPeace_LoopId + 1
@@ -140,9 +148,28 @@ local function startAutoLoop()
         while _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame and _G.SailoPeace_LoopId == myId do
             task.wait(currentDelay)
             if not _G.SailoPeace_IsAutoEnabled or not _G.SailoPeace_SavedCFrame or _G.SailoPeace_LoopId ~= myId then break end
+            
             local root = getRoot()
             if root then
-                root.CFrame = _G.SailoPeace_SavedCFrame
+                local targetCFrame = _G.SailoPeace_SavedCFrame
+                local tweenTime = calculateTweenTime(root.CFrame, targetCFrame)
+                
+                -- Tạo Tween Info
+                local tweenInfo = TweenInfo.new(
+                    tweenTime,
+                    Enum.EasingStyle.Linear,
+                    Enum.EasingDirection.InOut
+                )
+                
+                -- Tạo goal (CFrame property)
+                local goal = {CFrame = targetCFrame}
+                
+                -- Tạo và phát Tween
+                local tween = TweenService:Create(root, tweenInfo, goal)
+                tween:Play()
+                tween.Completed:Connect(function()
+                    -- Tween hoàn thành
+                end)
             end
         end
     end)
@@ -203,4 +230,4 @@ elseif _G.SailoPeace_SavedCFrame then
     status.Text = "Trạng thái: Sẵn sàng Auto"
 end
 
-print("✅ Sailo Peace Auto Teleport đã load! Kéo GUI bằng cách kéo title hoặc khung.")
+print("✅ Sailo Peace Auto Teleport (Tween 300 studs/s) đã load! Kéo GUI bằng cách kéo title hoặc khung.")
