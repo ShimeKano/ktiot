@@ -7,6 +7,9 @@ local player = game.Players.LocalPlayer
 if _G.SailoPeace_IsAutoEnabled == nil then
     _G.SailoPeace_IsAutoEnabled = false
 end
+if _G.SailoPeace_LoopId == nil then
+    _G.SailoPeace_LoopId = 0
+end
 local currentDelay = 30  -- mặc định 30 giây
 
 -- Lấy HumanoidRootPart của nhân vật hiện tại (luôn cập nhật)
@@ -129,11 +132,14 @@ status.TextScaled = true
 status.Parent = mainFrame
 
 -- Khởi động vòng lặp auto cho nhân vật hiện tại
+-- Dùng LoopId để đảm bảo chỉ có một vòng lặp chạy tại một thời điểm
 local function startAutoLoop()
+    _G.SailoPeace_LoopId = _G.SailoPeace_LoopId + 1
+    local myId = _G.SailoPeace_LoopId
     spawn(function()
-        while _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame do
+        while _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame and _G.SailoPeace_LoopId == myId do
             task.wait(currentDelay)
-            if not _G.SailoPeace_IsAutoEnabled or not _G.SailoPeace_SavedCFrame then break end
+            if not _G.SailoPeace_IsAutoEnabled or not _G.SailoPeace_SavedCFrame or _G.SailoPeace_LoopId ~= myId then break end
             local root = getRoot()
             if root then
                 root.CFrame = _G.SailoPeace_SavedCFrame
