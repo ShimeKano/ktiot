@@ -20,7 +20,7 @@ if _G.SailoPeace_LockPosition == nil then
     _G.SailoPeace_LockPosition = false
 end
 
-local currentDelay = 30  -- mặc định 30 giây
+local currentDelay = 10  -- mặc định 30 giây
 local TWEEN_SPEED = 300  -- studs per second
 local minRandomDelay = 0.02  -- min random delay
 local maxRandomDelay = 0.08  -- max random delay
