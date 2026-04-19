@@ -1,9 +1,10 @@
 -- Sailo Peace - Auto Teleport to Saved Position with Tween + Auto Key Spam
--- Fix: Bay về vị trí rồi giữ nguyên (không reset)
+-- Fix: Lock vị trí liên tục (chống game teleport về vị trí mặc định)
 
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 -- Dùng _G để savedCFrame và trạng thái auto tồn tại qua các lần respawn / re-execute
 if _G.SailoPeace_IsAutoEnabled == nil then
@@ -15,10 +16,12 @@ end
 if _G.SailoPeace_KeySpamEnabled == nil then
     _G.SailoPeace_KeySpamEnabled = false
 end
+if _G.SailoPeace_LockPosition == nil then
+    _G.SailoPeace_LockPosition = false
+end
 
 local currentDelay = 30  -- mặc định 30 giây
 local TWEEN_SPEED = 300  -- studs per second
-local keySpamDelay = 0.05  -- delay giữa các lần ấn phím
 local minRandomDelay = 0.02  -- min random delay
 local maxRandomDelay = 0.08  -- max random delay
 
@@ -58,7 +61,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 320)  -- Tăng chiều cao
+mainFrame.Size = UDim2.new(0, 300, 0, 370)  -- Tăng chiều cao thêm
 mainFrame.Position = UDim2.new(0.5, -150, 0.4, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
@@ -147,10 +150,20 @@ toggleBtn.TextColor3 = Color3.new(1,1,1)
 toggleBtn.TextScaled = true
 toggleBtn.Parent = mainFrame
 
+-- Nút Lock Position (chống game teleport)
+local lockBtn = Instance.new("TextButton")
+lockBtn.Size = UDim2.new(0.9, 0, 0, 45)
+lockBtn.Position = UDim2.new(0.05, 0, 0, 220)
+lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
+lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
+lockBtn.TextColor3 = Color3.new(1,1,1)
+lockBtn.TextScaled = true
+lockBtn.Parent = mainFrame
+
 -- Nút Bật/Tắt Auto Key Spam
 local keySpamBtn = Instance.new("TextButton")
 keySpamBtn.Size = UDim2.new(0.9, 0, 0, 45)
-keySpamBtn.Position = UDim2.new(0.05, 0, 0, 220)
+keySpamBtn.Position = UDim2.new(0.05, 0, 0, 275)
 keySpamBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
 keySpamBtn.Text = "🟠 BẬT AUTO KEY SPAM"
 keySpamBtn.TextColor3 = Color3.new(1,1,1)
@@ -159,8 +172,8 @@ keySpamBtn.Parent = mainFrame
 
 -- Status label
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(0.9, 0, 0, 40)
-status.Position = UDim2.new(0.05, 0, 0, 275)
+status.Size = UDim2.new(0.9, 0, 0, 45)
+status.Position = UDim2.new(0.05, 0, 0, 330)
 status.BackgroundTransparency = 1
 status.Text = "Trạng thái: Chưa lưu vị trí\n"
 status.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -168,7 +181,35 @@ status.TextScaled = true
 status.TextWrapped = true
 status.Parent = mainFrame
 
--- Khởi động vòng lặp auto teleport (sử dụng Tween)
+-- ============ LOCK POSITION (CHỐNG GAME TELEPORT) ============
+local lockConnection = nil
+local function startLockPosition()
+    if lockConnection then lockConnection:Disconnect() end
+    
+    lockConnection = RunService.Heartbeat:Connect(function()
+        if not _G.SailoPeace_LockPosition or not _G.SailoPeace_SavedCFrame then
+            return
+        end
+        
+        local root = getRoot()
+        if root then
+            -- Nếu vị trí lệch quá 5 studs, teleport lại
+            local distance = (root.Position - _G.SailoPeace_SavedCFrame.Position).Magnitude
+            if distance > 5 then
+                root.CFrame = _G.SailoPeace_SavedCFrame
+            end
+        end
+    end)
+end
+
+local function stopLockPosition()
+    if lockConnection then
+        lockConnection:Disconnect()
+        lockConnection = nil
+    end
+end
+
+-- ============ KHỞI ĐỘNG VÒNG LẶP AUTO TELEPORT ============
 local function startAutoLoop()
     _G.SailoPeace_LoopId = _G.SailoPeace_LoopId + 1
     local myId = _G.SailoPeace_LoopId
@@ -196,10 +237,10 @@ local function startAutoLoop()
                 local tween = TweenService:Create(root, tweenInfo, goal)
                 tween:Play()
                 
-                -- Đợi tween hoàn thành xong mới tiếp tục vòng lặp
+                -- Đợi tween hoàn thành
                 tween.Completed:Wait()
                 
-                -- Sau khi bay về, giữ nguyên vị trí (teleport lại một lần nữa để đảm bảo)
+                -- Giữ vị trí sau khi tween xong
                 if _G.SailoPeace_IsAutoEnabled then
                     root.CFrame = _G.SailoPeace_SavedCFrame
                 end
@@ -208,26 +249,23 @@ local function startAutoLoop()
     end)
 end
 
--- Khởi động vòng lặp auto key spam (CXZVF)
+-- ============ KHỞI ĐỘNG AUTO KEY SPAM ============
 local function startKeySpamLoop()
     spawn(function()
         while _G.SailoPeace_KeySpamEnabled do
-            -- Random giữa các phím để tránh phát hiện
             local keys = {"C", "X", "Z", "V", "F"}
             for _, key in ipairs(keys) do
                 if not _G.SailoPeace_KeySpamEnabled then break end
                 pressKey(key)
-                -- Random delay để tránh phát hiện (không spam quá đều)
                 local randomDelay = math.random(math.floor(minRandomDelay * 1000), math.floor(maxRandomDelay * 1000)) / 1000
                 task.wait(randomDelay)
             end
-            -- Chút delay giữa các cycle
             task.wait(0.01)
         end
     end)
 end
 
--- Lưu vị trí
+-- ============ LƯU VỊ TRÍ ============
 saveBtn.MouseButton1Click:Connect(function()
     local root = getRoot()
     if root then
@@ -238,7 +276,7 @@ saveBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Toggle Auto Teleport
+-- ============ TOGGLE AUTO TELEPORT ============
 toggleBtn.MouseButton1Click:Connect(function()
     _G.SailoPeace_IsAutoEnabled = not _G.SailoPeace_IsAutoEnabled
 
@@ -261,7 +299,31 @@ toggleBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Toggle Auto Key Spam
+-- ============ TOGGLE LOCK POSITION ============
+lockBtn.MouseButton1Click:Connect(function()
+    _G.SailoPeace_LockPosition = not _G.SailoPeace_LockPosition
+
+    if _G.SailoPeace_LockPosition then
+        if not _G.SailoPeace_SavedCFrame then
+            status.Text = "❌ Chưa lưu vị trí!\n"
+            _G.SailoPeace_LockPosition = false
+            task.wait(2)
+            status.Text = "Trạng thái: Chưa lưu vị trí"
+            return
+        end
+        lockBtn.Text = "🟣 ĐANG LOCK VỊ TRÍ"
+        lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
+        status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)"
+        startLockPosition()
+    else
+        lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
+        lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
+        status.Text = "🔓 Lock vị trí tắt"
+        stopLockPosition()
+    end
+end)
+
+-- ============ TOGGLE AUTO KEY SPAM ============
 keySpamBtn.MouseButton1Click:Connect(function()
     _G.SailoPeace_KeySpamEnabled = not _G.SailoPeace_KeySpamEnabled
 
@@ -277,7 +339,7 @@ keySpamBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Khi nhân vật respawn: cập nhật root và tiếp tục auto nếu đang bật
+-- ============ KHI RESPAWN ============
 player.CharacterAdded:Connect(function(newCharacter)
     newCharacter:WaitForChild("HumanoidRootPart")
     if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
@@ -286,9 +348,12 @@ player.CharacterAdded:Connect(function(newCharacter)
         status.Text = "✈️ Auto bay về chạy\n⏱️ Delay: " .. currentDelay .. "s"
         startAutoLoop()
     end
+    if _G.SailoPeace_LockPosition and _G.SailoPeace_SavedCFrame then
+        startLockPosition()
+    end
 end)
 
--- Đồng bộ trạng thái UI nếu auto đang bật từ lần chạy trước
+-- ============ ĐỒNG BỘ TRẠNG THÁI ============
 if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
     toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ"
     toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
@@ -298,6 +363,13 @@ elseif _G.SailoPeace_SavedCFrame then
     status.Text = "Trạng thái: Sẵn sàng Auto"
 end
 
+if _G.SailoPeace_LockPosition and _G.SailoPeace_SavedCFrame then
+    lockBtn.Text = "🟣 ĐANG LOCK VỊ TRÍ"
+    lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
+    status.Text = "🔒 Lock vị trí chạy\n(Chống game teleport)"
+    startLockPosition()
+end
+
 if _G.SailoPeace_KeySpamEnabled then
     keySpamBtn.Text = "🟡 ĐANG AUTO KEY SPAM"
     keySpamBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 50)
@@ -305,6 +377,7 @@ if _G.SailoPeace_KeySpamEnabled then
     startKeySpamLoop()
 end
 
-print("✅ Sailo Peace Auto Teleport + KeySpam đã load!")
-print("🎮 Auto Bay Về: Ctrl + Click nút xanh")
-print("⌨️ Auto Key Spam (CXZVF): Click nút cam để bật spam tự động")
+print("✅ Sailo Peace Auto Teleport + KeySpam + Lock Position đã load!")
+print("🎮 Auto Bay Về: Click nút xanh")
+print("🔒 Lock Vị Trí: Click nút tím (chống game teleport về vị trí mặc định)")
+print("⌨️ Auto Key Spam: Click nút cam")
