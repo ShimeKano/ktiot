@@ -1,110 +1,134 @@
--- 🥚 Steal An Egg — KHÔNG BỊ KẸT + BẤT TỬ + KHÔI PHỤC VỊ TRÍ
--- ✅ Máu không chết + tự quay về + ĐỢI NHÂN VẬT LOAD XONG → KHÔNG BỊ KẸT KHÔNG ĐIỀU KHIỂN
+-- 🥚 BẤT KHẢ XÂM NHẬP — Không bị đánh / Không bị đẩy / Không bị tác động
+-- ✅ Chặn sát thương | Chặn đẩy vị trí | Chặn NPC | Chặn mọi hiệu ứng
 local player = game.Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 -- ============ DỮ LIỆU LƯU TRỮ ============
 if _G.EggAuto_Positions == nil then _G.EggAuto_Positions = {} end
 if _G.EggAuto_SelectedPos == nil then _G.EggAuto_SelectedPos = nil end
-if _G.EggAuto_AutoEnabled == nil then _G.EggAuto_AutoEnabled = false end
 if _G.EggAuto_LockPosEnabled == nil then _G.EggAuto_LockPosEnabled = false end
 if _G.EggAuto_GodModeEnabled == nil then _G.EggAuto_GodModeEnabled = false end
+if _G.EggAuto_InvincibleEnabled == nil then _G.EggAuto_InvincibleEnabled = false end
 
 -- Cấu hình
-local currentDelay = 30
-local LOCK_DISTANCE_THRESHOLD = 0.5  -- Nới nhẹ để không bị giật liên tục
-local RESTORE_DELAY = 0.15  -- Đợi server đồng bộ rồi mới dịch chuyển
-local MAX_RESTORE_ATTEMPTS = 8  -- Thử lại nhiều lần cho chắc
+local LOCK_DISTANCE_THRESHOLD = 0.3
+local RESTORE_DELAY = 0.8
 
--- Lấy nhân vật / bộ phận
+-- Lấy đối tượng
 local function getChar() return player.Character end
 local function getRoot() local c = getChar() return c and c:FindFirstChild("HumanoidRootPart") end
 local function getHumanoid() local c = getChar() return c and (c:FindFirstChild("Humanoid") or c:FindFirstChildOfClass("Humanoid")) end
+local function getPosNames() local l={} for n,_ in pairs(_G.EggAuto_Positions) do table.insert(l,n) end table.sort(l) return l end
 
--- Lấy danh sách tên vị trí
-local function getPosNames()
-    local list = {}
-    for name, _ in pairs(_G.EggAuto_Positions) do table.insert(list, name) end
-    table.sort(list)
-    return list
+-- ============ 🛡️ BẤT KHẢ XÂM NHẬP — CHẶN MỌI TÁC ĐỘNG ============
+local shieldConn = nil
+local function startInvincibleMode()
+    if shieldConn then shieldConn:Disconnect() end
+
+    shieldConn = RunService.Heartbeat:Connect(function()
+        if not _G.EggAuto_InvincibleEnabled then return end
+        local char = getChar()
+        local hum = getHumanoid()
+        local root = getRoot()
+        if not char or not hum then return end
+
+        -- ✅ 1. Bất Tử Hoàn Toàn
+        hum.MaxHealth = math.huge
+        hum.Health = math.huge
+
+        -- ✅ 2. Bất Khả Tấn Công — Không bị mục tiêu
+        hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+        hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
+
+        -- ✅ 3. Bất Khả Đẩy — Khối lượng vô cực + không bị vật lý tác động
+        if root then
+            root.Massless = true
+            root.CustomPhysicalProperties = PhysicalProperties.new(100, 0, 0)
+            root.CanCollide = true
+        end
+
+        -- ✅ 4. Chặn mọi hiệu ứng trạng thái
+        for _, d in ipairs(char:GetChildren()) do
+            if d:IsA("ForceField") then
+                -- Giữ ForceField nếu có, hoặc tạo mới
+            elseif d:IsA("BodyVelocity") or d:IsA("BodyForce") 
+                or d:IsA("BodyPosition") or d:IsA("BodyGyro")
+                or d:IsA("AngularVelocity") or d:IsA("LinearVelocity") then
+                -- Xóa mọi lực đẩy bên ngoài
+                d:Destroy()
+            end
+        end
+
+        -- ✅ 5. Tạo Lực Đỡ Đẩy Liên Tục
+        if root and not char:FindFirstChild("AntiPushForce") then
+            local antiPush = Instance.new("BodyVelocity")
+            antiPush.Name = "AntiPushForce"
+            antiPush.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            antiPush.Velocity = Vector3.zero
+            antiPush.P = 1000
+            antiPush.Parent = root
+        end
+    end)
 end
 
--- ============ BẤT TỬ ============
+local function stopInvincibleMode()
+    if shieldConn then shieldConn:Disconnect() end
+    local char = getChar()
+    if char and char:FindFirstChild("AntiPushForce") then
+        char.AntiPushForce:Destroy()
+    end
+end
+
+-- ============ 🛡️ BẤT TỬ RIÊNG ============
 local godConn = nil
 local function startGodMode()
     if godConn then godConn:Disconnect() end
     godConn = RunService.Heartbeat:Connect(function()
         if not _G.EggAuto_GodModeEnabled then return end
         local hum = getHumanoid()
-        if hum and hum.Health < hum.MaxHealth then
-            hum.Health = hum.MaxHealth
-        end
+        if hum then hum.Health = hum.MaxHealth end
     end)
 end
 local function stopGodMode() if godConn then godConn:Disconnect() end end
 
--- ============ DỊCH CHUYỂN AN TOÀN — ĐỢI LOAD XONG RỒI MỚI DI CHUYỂN ============
-local function safeTeleportTo(targetCFrame)
+-- ============ 📍 LOCK VỊ TRÍ — CHỐNG ĐẨY ============
+local lockConn = nil
+local function restorePosition(targetCFrame)
     task.spawn(function()
-        -- Đợi nhân vật sẵn sàng hoàn toàn
-        local root = nil
-        for attempt = 1, MAX_RESTORE_ATTEMPTS do
-            root = getRoot()
+        for i = 1, 5 do
+            local root = getRoot()
             if root then
-                -- Dịch chuyển nhiều lần trong vài khung hình để chống server ghi đè
                 root.CFrame = targetCFrame
-                task.wait(RESTORE_DELAY)
+                task.wait(0.05)
                 root.CFrame = targetCFrame
-                task.wait(RESTORE_DELAY * 2)
-                root.CFrame = targetCFrame
-                return true
+                return
             end
-            task.wait(RESTORE_DELAY * 2)
+            task.wait(0.1)
         end
-        return false
     end)
 end
 
--- ============ LOCK VỊ TRÍ — KHÔNG GIẬT, KHÔNG BỊ KẸT ============
-local lockConn = nil
 local function startLockPosition()
     if lockConn then lockConn:Disconnect() end
-    local selected = _G.EggAuto_SelectedPos
-    local target = selected and _G.EggAuto_Positions[selected]
-    if target then
-        safeTeleportTo(target)  -- Dịch chuyển an toàn
-    end
-    -- Theo dõi và khôi phục từ từ
+    local sel = _G.EggAuto_SelectedPos
+    local target = sel and _G.EggAuto_Positions[sel]
+    if target then restorePosition(target) end
+
     lockConn = RunService.Heartbeat:Connect(function()
         if not _G.EggAuto_LockPosEnabled then return end
-        local sel = _G.EggAuto_SelectedPos
-        local pos = sel and _G.EggAuto_Positions[sel]
+        local name = _G.EggAuto_SelectedPos
+        local pos = name and _G.EggAuto_Positions[name]
         if not pos then return end
         local root = getRoot()
-        if root then
-            local dist = (root.Position - pos.Position).Magnitude
-            if dist > LOCK_DISTANCE_THRESHOLD then
-                root.CFrame = pos  -- Khôi phục nhẹ nhàng
-            end
+        if root and (root.Position - pos.Position).Magnitude > LOCK_DISTANCE_THRESHOLD then
+            root.CFrame = pos
         end
     end)
 end
-local function stopLockPosition() if lockConn then lockConn:Disconnect() end end
+local function stopLockPosition() if lockConn then lockConn:Disconnect() end
 
--- ============ AUTO QUAY LẠI ============
-local function startAutoLoop()
-    task.spawn(function()
-        while _G.EggAuto_AutoEnabled and _G.EggAuto_SelectedPos do
-            task.wait(currentDelay)
-            local target = _G.EggAuto_Positions[_G.EggAuto_SelectedPos]
-            if target then safeTeleportTo(target) end
-        end
-    end)
-end
-
--- ============ TẠO GUI ============
+-- ============ 🖥️ TẠO GUI ============
 local existingGui = player:FindFirstChild("PlayerGui", true):FindFirstChild("EggAutoMenu")
 if existingGui then existingGui:Destroy() end
 
@@ -114,7 +138,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 490)
+mainFrame.Size = UDim2.new(0, 320, 0, 520)
 mainFrame.Position = UDim2.new(0.5, -160, 0.35, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.Active = true
@@ -125,7 +149,7 @@ mainFrame.Parent = screenGui
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 45)
 title.BackgroundColor3 = Color3.fromRGB(220, 160, 40)
-title.Text = "🥚 Không Kẹt + Bất Tử + Lock"
+title.Text = "🛡️ BẤT KHẢ XÂM NHẬP"
 title.TextColor3 = Color3.new(1,1,1)
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
@@ -192,8 +216,6 @@ local function refreshPosList()
             posDropdown.Text = "✅ "..name
             posListFrame.Visible = false
             status.Text = "✅ Đã chọn: "..name
-            task.wait(1.5)
-            status.Text = "Trạng thái: Sẵn sàng"
         end)
     end
     posListFrame.Size = UDim2.new(1, 0, 0, #names*40)
@@ -202,18 +224,9 @@ end
 posDropdown.MouseButton1Click:Connect(function() refreshPosList() posListFrame.Visible = not posListFrame.Visible end)
 
 -- Nút chức năng
-local autoBtn = Instance.new("TextButton")
-autoBtn.Size = UDim2.new(0.9, 0, 0, 40)
-autoBtn.Position = UDim2.new(0.05, 0, 0, 170)
-autoBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
-autoBtn.Text = "🔴 BẬT AUTO QUAY LẠI"
-autoBtn.TextColor3 = Color3.new(1,1,1)
-autoBtn.TextScaled = true
-autoBtn.Parent = mainFrame
-
 local lockBtn = Instance.new("TextButton")
 lockBtn.Size = UDim2.new(0.9, 0, 0, 40)
-lockBtn.Position = UDim2.new(0.05, 0, 0, 215)
+lockBtn.Position = UDim2.new(0.05, 0, 0, 170)
 lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
 lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
 lockBtn.TextColor3 = Color3.new(1,1,1)
@@ -222,18 +235,27 @@ lockBtn.Parent = mainFrame
 
 local godBtn = Instance.new("TextButton")
 godBtn.Size = UDim2.new(0.9, 0, 0, 40)
-godBtn.Position = UDim2.new(0.05, 0, 0, 260)
+godBtn.Position = UDim2.new(0.05, 0, 0, 215)
 godBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
 godBtn.Text = "🟡 BẬT BẤT TỬ"
 godBtn.TextColor3 = Color3.new(1,1,1)
 godBtn.TextScaled = true
 godBtn.Parent = mainFrame
 
+local shieldBtn = Instance.new("TextButton")
+shieldBtn.Size = UDim2.new(0.9, 0, 0, 40)
+shieldBtn.Position = UDim2.new(0.05, 0, 0, 260)
+shieldBtn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+shieldBtn.Text = "🔵 BẬT BẤT KHẢ XÂM NHẬP"
+shieldBtn.TextColor3 = Color3.new(1,1,1)
+shieldBtn.TextScaled = true
+shieldBtn.Parent = mainFrame
+
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(0.9, 0, 0, 80)
+status.Size = UDim2.new(0.9, 0, 0, 100)
 status.Position = UDim2.new(0.05, 0, 0, 310)
 status.BackgroundTransparency = 1
-status.Text = "Trạng thái: Chưa có vị trí\n💾 Lưu vị trí an toàn trước"
+status.Text = "Trạng thái: Sẵn sàng\n💾 Lưu vị trí an toàn trước"
 status.TextColor3 = Color3.fromRGB(200, 200, 200)
 status.TextScaled = true
 status.TextWrapped = true
@@ -248,21 +270,7 @@ saveBtn.MouseButton1Click:Connect(function()
         _G.EggAuto_SelectedPos = name
         posDropdown.Text = "✅ "..name
         refreshPosList()
-        status.Text = "✅ Đã lưu: "..name.."\nSẵn sàng khóa vị trí"
-    end
-end)
-
-autoBtn.MouseButton1Click:Connect(function()
-    _G.EggAuto_AutoEnabled = not _G.EggAuto_AutoEnabled
-    local sel = _G.EggAuto_SelectedPos
-    if _G.EggAuto_AutoEnabled then
-        if not sel then status.Text="❌ Chọn vị trí trước!" task.wait(2) return end
-        autoBtn.Text = "🟢 ĐANG AUTO"
-        autoBtn.BackgroundColor3 = Color3.fromRGB(50,220,50)
-        startAutoLoop()
-    else
-        autoBtn.Text = "🔴 BẬT AUTO QUAY LẠI"
-        autoBtn.BackgroundColor3 = Color3.fromRGB(220,50,50)
+        status.Text = "✅ Đã lưu: "..name
     end
 end)
 
@@ -273,7 +281,6 @@ lockBtn.MouseButton1Click:Connect(function()
         if not sel then status.Text="❌ Chọn vị trí trước!" task.wait(2) return end
         lockBtn.Text = "🟢 ĐANG LOCK"
         lockBtn.BackgroundColor3 = Color3.fromRGB(200,100,255)
-        status.Text = "🔒 Khóa vị trí: "..sel.."\nĐợi server đồng bộ rồi di chuyển"
         startLockPosition()
     else
         lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
@@ -287,7 +294,6 @@ godBtn.MouseButton1Click:Connect(function()
     if _G.EggAuto_GodModeEnabled then
         godBtn.Text = "💛 BẤT TỬ ✅"
         godBtn.BackgroundColor3 = Color3.fromRGB(255,220,0)
-        status.Text = "✨ Bất tử đã bật\nMáu luôn đầy"
         startGodMode()
     else
         godBtn.Text = "🟡 BẬT BẤT TỬ"
@@ -296,28 +302,34 @@ godBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============ RESPAWN → TỰ BẬT LẠI NHƯNG ĐỢI ĐỦ THỜI GIAN ============
+shieldBtn.MouseButton1Click:Connect(function()
+    _G.EggAuto_InvincibleEnabled = not _G.EggAuto_InvincibleEnabled
+    if _G.EggAuto_InvincibleEnabled then
+        shieldBtn.Text = "💠 BẤT KHẢ XÂM NHẬP ✅"
+        shieldBtn.BackgroundColor3 = Color3.fromRGB(50,200,255)
+        status.Text = "🛡️ Đã BẬT KHIÊN\nKhông bị đánh / Không bị đẩy / Không bị tác động"
+        startInvincibleMode()
+    else
+        shieldBtn.Text = "🔵 BẬT BẤT KHẢ XÂM NHẬP"
+        shieldBtn.BackgroundColor3 = Color3.fromRGB(30,144,255)
+        status.Text = "❌ Đã tắt khiên"
+        stopInvincibleMode()
+    end
+end)
+
+-- ============ RESPAWN → TỰ BẬT LẠI TẤT CẢ ============
 player.CharacterAdded:Connect(function(newChar)
-    -- Đợi nhân vật load hoàn toàn + server đồng bộ xong
     newChar:WaitForChild("HumanoidRootPart")
     newChar:WaitForChild("Humanoid")
 
-    -- Tự bật Bất Tử
-    if _G.EggAuto_GodModeEnabled then
-        task.wait(0.5)  -- Đợi server ổn định
-        startGodMode()
-    end
+    task.wait(RESTORE_DELAY)
 
-    -- Tự quay về vị trí cũ — ĐỢI RỒI MỚI DI CHUYỂN
-    local sel = _G.EggAuto_SelectedPos
-    local target = sel and _G.EggAuto_Positions[sel]
-    if _G.EggAuto_LockPosEnabled and target then
-        status.Text = "♻️ Đợi server đồng bộ..."
-        task.wait(1.2)  -- ⚠️ ĐỢI KỸ → KHÔNG BỊ KẸT
-        safeTeleportTo(target)
-        task.wait(0.5)
+    if _G.EggAuto_GodModeEnabled then startGodMode() end
+    if _G.EggAuto_InvincibleEnabled then startInvincibleMode() end
+    if _G.EggAuto_LockPosEnabled and _G.EggAuto_SelectedPos then
+        restorePosition(_G.EggAuto_Positions[_G.EggAuto_SelectedPos])
+        task.wait(0.3)
         startLockPosition()
-        status.Text = "✅ Đã khôi phục: "..sel
     end
 end)
 
@@ -326,8 +338,9 @@ refreshPosList()
 local sel = _G.EggAuto_SelectedPos
 if sel and _G.EggAuto_Positions[sel] then posDropdown.Text = "✅ "..sel end
 if _G.EggAuto_GodModeEnabled then godBtn.Text="💛 BẤT TỬ ✅" godBtn.BackgroundColor3=Color3.fromRGB(255,220,0) startGodMode() end
+if _G.EggAuto_InvincibleEnabled then shieldBtn.Text="💠 BẤT KHẢ XÂM NHẬP ✅" shieldBtn.BackgroundColor3=Color3.fromRGB(50,200,255) startInvincibleMode() end
 if _G.EggAuto_LockPosEnabled and sel and _G.EggAuto_Positions[sel] then lockBtn.Text="🟢 ĐANG LOCK" lockBtn.BackgroundColor3=Color3.fromRGB(200,100,255) startLockPosition() end
 
-print("✅ Đã Load — KHÔNG BỊ KẸT + BẤT TỬ + KHÔI PHỤC VỊ TRÍ")
-print("💡 Lưu vị trí an toàn → Chọn → Bật Bất Tử → Bật Lock")
-print("⏳ Mỗi lần reset → đợi 1-2 giây tự quay về, ĐỪNG nhấn gì trong lúc đó")
+print("✅ BẤT KHẢ XÂM NHẬP ĐÃ BẬT!")
+print("🛡️ Không bị sát thương | Không bị đẩy | Không bị NPC tác động")
+print("💡 Lưu vị trí → Chọn → Bật Khiên → Bật Lock")
