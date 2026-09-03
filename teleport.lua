@@ -1,33 +1,42 @@
--- 🛡️ BẤT KHẢ XÂM NHẬP ĐƠN GIẢN — Không bị đánh / Không bị đẩy
-local player = game.Players.LocalPlayer
+-- 🛡️ BẤT KHẢ XÂM NHẬP — ĐƠN GIẢN NHẤT & CHẮC CHẮN NHẤT
+local player = game:GetService("Players").LocalPlayer
 local RunService = game:GetService("RunService")
 
-_G.BatKhaXamNhap = false
+_G.KhiengBat = false
 
-local function getChar() return player.Character end
-local function getRoot() local c = getChar() return c and c:FindFirstChild("HumanoidRootPart") end
-local function getHum() local c = getChar() return c and c:FindFirstChild("Humanoid") end
+-- ============ CHỜ NHÂN VẬT LOAD XONG HOÀN TOÀN ============
+local function layNhanVat()
+    local nhanVat = player.Character
+    if not nhanVat then return nil end
+    -- Chờ đủ bộ phận
+    local root = nhanVat:FindFirstChild("HumanoidRootPart")
+    local hum = nhanVat:FindFirstChild("Humanoid")
+    if root and hum and root:IsA("BasePart") then
+        return {nhanVat, root, hum}
+    end
+    return nil
+end
 
--- CHẠY LIÊN TỤC — KHÔNG DỪNG
+-- ============ VÒNG LẶP BẢO VỆ ============
 RunService.Heartbeat:Connect(function()
-    if not _G.BatKhaXamNhap then return end
-    local char = getChar()
-    local root = getRoot()
-    local hum = getHum()
-    if not char or not root or not hum then return end
+    if not _G.KhiengBat then return end
+    
+    local nv = layNhanVat()
+    if not nv then return end
+    local nhanVat, root, hum = nv[1], nv[2], nv[3]
 
     -- ✅ 1. MÁU VÔ CỰC — KHÔNG CHẾT
     hum.MaxHealth = math.huge
     hum.Health = math.huge
 
-    -- ✅ 2. KHÔNG BỊ ĐẨY — KHỐI LƯỢNG NẶNG VÔ CÙNG
+    -- ✅ 2. KHÔNG BỊ ĐẨY
     root.Massless = false
     root.CustomPhysicalProperties = PhysicalProperties.new(1000, 0, 0)
 
-    -- ✅ 3. XÓA HẾT LỰC ĐẨY BÊN NGOÀI
-    for _, v in ipairs(root:GetChildren()) do
-        if v:IsA("BodyVelocity") or v:IsA("BodyForce") or v:IsA("BodyPosition") or v:IsA("AngularVelocity") then
-            v:Destroy()
+    -- ✅ 3. XÓA LỰC ĐẨY
+    for _, con in ipairs(root:GetChildren()) do
+        if con:IsA("BodyVelocity") or con:IsA("BodyForce") or con:IsA("BodyPosition") or con:IsA("AngularVelocity") or con:IsA("LinearVelocity") then
+            con:Destroy()
         end
     end
 
@@ -36,41 +45,57 @@ RunService.Heartbeat:Connect(function()
     hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 end)
 
--- TẠO NÚT BẬT/TẮT
-local gui = Instance.new("ScreenGui")
-gui.Name = "BatKhaXamNhapGui"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+-- ============ TẠO NÚT BẬT/TẮT ============
+local function taoNut()
+    -- Xóa cũ nếu có
+    local guiCu = player:FindFirstChild("PlayerGui", true):FindFirstChild("KhiengBatGui")
+    if guiCu then guiCu:Destroy() end
 
-local btn = Instance.new("TextButton")
-btn.Size = UDim2.new(0, 220, 0, 60)
-btn.Position = UDim2.new(0.02, 0, 0.5, -30)
-btn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
-btn.Text = "🔵 BẬT BẤT KHẢ XÂM NHẬP"
-btn.TextColor3 = Color3.new(1,1,1)
-btn.TextScaled = true
-btn.Font = Enum.Font.GothamBold
-btn.Active = true
-btn.Draggable = true
-btn.Parent = gui
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "KhiengBatGui"
+    gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = player:WaitForChild("PlayerGui", 10)
 
-btn.MouseButton1Click:Connect(function()
-    _G.BatKhaXamNhap = not _G.BatKhaXamNhap
-    if _G.BatKhaXamNhap then
-        btn.Text = "💠 ĐANG BẢO VỆ ✅"
-        btn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-    else
-        btn.Text = "🔵 BẬT BẤT KHẢ XÂM NHẬP"
-        btn.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
-    end
-end)
+    local nut = Instance.new("TextButton")
+    nut.Size = UDim2.new(0, 240, 0, 70)
+    nut.Position = UDim2.new(0.02, 0, 0.5, -35)
+    nut.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+    nut.Text = "🔵 BẬT BẢO VỆ"
+    nut.TextColor3 = Color3.new(1,1,1)
+    nut.Font = Enum.Font.GothamBold
+    nut.TextSize = 22
+    nut.Active = true
+    nut.Draggable = true
+    nut.Parent = gui
 
--- TỰ BẬT LẠI SAO RESPAWN
+    nut.MouseButton1Click:Connect(function()
+        _G.KhiengBat = not _G.KhiengBat
+        if _G.KhiengBat then
+            nut.Text = "💠 ĐANG BẢO VỆ ✅"
+            nut.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        else
+            nut.Text = "🔵 BẬT BẢO VỆ"
+            nut.BackgroundColor3 = Color3.fromRGB(30, 144, 255)
+        end
+    end)
+
+    return nut
+end
+
+-- ============ TỰ TẠO NÚT + TỰ BẬT LẠI SAO RESPAWN ============
+local nut = taoNut()
+
 player.CharacterAdded:Connect(function()
-    task.wait(1)
-    if _G.BatKhaXamNhap then
-        btn.Text = "💠 ĐANG BẢO VỆ ✅"
+    -- ĐỢI DÀI HƠN — CHẮC CHẮN NHÂN VẬT SẴN SÀNG
+    task.wait(2)
+    if _G.KhiengBat then
+        nut.Text = "💠 ĐANG BẢO VỆ ✅"
     end
 end)
 
-print("✅ Đã tải — Nhấn nút BẬT LÀ XONG!")
+print("==================================")
+print("✅ BẢO VỆ ĐÃ TẢI THÀNH CÔNG!")
+print("👉 Nhấn nút [🔵 BẬT BẢO VỆ] là xong")
+print("💡 Nút hiện ở góc màn hình, có thể kéo đi được")
+print("==================================")
