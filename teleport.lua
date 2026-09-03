@@ -1,5 +1,5 @@
--- 🥚 Steal An Egg - Auto Return + Instant Teleport On Lock + Multi Positions
--- ✅ BẬT LOCK = LẬP TỨC VỀ VỊ TRÍ + KHÓA LIÊN TỤC
+-- 🥚 Steal An Egg - Instant Lock + GOD MODE (Bất Tử) + Anti-Death
+-- ✅ BẬT LOCK = LẬP TỨC VỀ + KHÓA CHẶT + BẤT TỬ TỰ ĐỘNG
 local player = game.Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -24,12 +24,16 @@ end
 if _G.EggAuto_LockPosEnabled == nil then
     _G.EggAuto_LockPosEnabled = false
 end
+if _G.EggAuto_GodModeEnabled == nil then
+    _G.EggAuto_GodModeEnabled = false
+end
 
 -- Cấu hình
 local currentDelay = 30
 local TWEEN_SPEED = 350
 local minRandomDelay = 0.02
 local maxRandomDelay = 0.08
+local LOCK_DISTANCE_THRESHOLD = 0.2  -- Khóa chặt cực mạnh!
 
 -- Lấy danh sách tên vị trí
 local function getPosNames()
@@ -50,6 +54,15 @@ local function getRoot()
     return nil
 end
 
+-- Lấy Humanoid
+local function getHumanoid()
+    local char = player.Character
+    if char then
+        return char:FindFirstChild("Humanoid")
+    end
+    return nil
+end
+
 -- Tính thời gian tween
 local function calculateTweenTime(fromCFrame, toCFrame)
     local distance = (fromCFrame.Position - toCFrame.Position).Magnitude
@@ -66,6 +79,28 @@ local function pressKey(key)
     end
 end
 
+-- ============ BẤT TỬ (GOD MODE) ============
+local godConnection = nil
+local function startGodMode()
+    if godConnection then godConnection:Disconnect() end
+    godConnection = RunService.Heartbeat:Connect(function()
+        if not _G.EggAuto_GodModeEnabled then return end
+        local hum = getHumanoid()
+        if hum then
+            -- Đặt máu tối đa + không bị chết
+            hum.Health = hum.MaxHealth
+            hum.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOn
+        end
+    end)
+end
+
+local function stopGodMode()
+    if godConnection then
+        godConnection:Disconnect()
+        godConnection = nil
+    end
+end
+
 -- Xóa GUI cũ nếu có
 local existingGui = player:WaitForChild("PlayerGui"):FindFirstChild("EggAutoMenu")
 if existingGui then existingGui:Destroy() end
@@ -77,8 +112,8 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 320, 0, 480)
-mainFrame.Position = UDim2.new(0.5, -160, 0.4, 0)
+mainFrame.Size = UDim2.new(0, 320, 0, 530)
+mainFrame.Position = UDim2.new(0.5, -160, 0.35, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
@@ -89,7 +124,7 @@ mainFrame.Parent = screenGui
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 45)
 title.BackgroundColor3 = Color3.fromRGB(220, 160, 40)
-title.Text = "🥚 Steal An Egg - Instant Lock"
+title.Text = "🥚 Steal An Egg + GOD MODE"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
@@ -249,7 +284,7 @@ end)
 
 -- Nút Auto Quay Lại Vị Trí
 local autoBtn = Instance.new("TextButton")
-autoBtn.Size = UDim2.new(0.9, 0, 0, 45)
+autoBtn.Size = UDim2.new(0.9, 0, 0, 40)
 autoBtn.Position = UDim2.new(0.05, 0, 0, 270)
 autoBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 autoBtn.Text = "🔴 BẬT AUTO QUAY LẠI"
@@ -259,18 +294,28 @@ autoBtn.Parent = mainFrame
 
 -- Nút Lock Vị Trí
 local lockBtn = Instance.new("TextButton")
-lockBtn.Size = UDim2.new(0.9, 0, 0, 45)
-lockBtn.Position = UDim2.new(0.05, 0, 0, 325)
+lockBtn.Size = UDim2.new(0.9, 0, 0, 40)
+lockBtn.Position = UDim2.new(0.05, 0, 0, 315)
 lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
 lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
 lockBtn.TextColor3 = Color3.new(1,1,1)
 lockBtn.TextScaled = true
 lockBtn.Parent = mainFrame
 
+-- Nút BẤT TỬ (GOD MODE)
+local godBtn = Instance.new("TextButton")
+godBtn.Size = UDim2.new(0.9, 0, 0, 40)
+godBtn.Position = UDim2.new(0.05, 0, 0, 360)
+godBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+godBtn.Text = "🟡 BẬT BẤT TỬ"
+godBtn.TextColor3 = Color3.new(1,1,1)
+godBtn.TextScaled = true
+godBtn.Parent = mainFrame
+
 -- Nút Key Spam
 local keySpamBtn = Instance.new("TextButton")
-keySpamBtn.Size = UDim2.new(0.9, 0, 0, 45)
-keySpamBtn.Position = UDim2.new(0.05, 0, 0, 380)
+keySpamBtn.Size = UDim2.new(0.9, 0, 0, 40)
+keySpamBtn.Position = UDim2.new(0.05, 0, 0, 405)
 keySpamBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
 keySpamBtn.Text = "🟠 BẬT AUTO NHẤN PHÍM"
 keySpamBtn.TextColor3 = Color3.new(1,1,1)
@@ -279,8 +324,8 @@ keySpamBtn.Parent = mainFrame
 
 -- Status
 local status = Instance.new("TextLabel")
-status.Size = UDim2.new(0.9, 0, 0, 45)
-status.Position = UDim2.new(0.05, 0, 0, 435)
+status.Size = UDim2.new(0.9, 0, 0, 50)
+status.Position = UDim2.new(0.05, 0, 0, 455)
 status.BackgroundTransparency = 1
 status.Text = "Trạng thái: Chưa có vị trí\nNhập tên → Lưu vị trí hiện tại"
 status.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -288,7 +333,7 @@ status.TextScaled = true
 status.TextWrapped = true
 status.Parent = mainFrame
 
--- ============ LOCK VỊ TRÍ + LẬP TỨC VỀ ============
+-- ============ LOCK VỊ TRÍ + LẬP TỨC VỀ + CHẶT CHẼ ============
 local lockConnection = nil
 local function startLockPosition()
     if lockConnection then lockConnection:Disconnect() end
@@ -304,7 +349,7 @@ local function startLockPosition()
         end
     end
 
-    -- Sau đó liên tục khóa vị trí
+    -- Sau đó KHÓA CHẶT CHẼ cực kỳ nhạy
     lockConnection = RunService.Heartbeat:Connect(function()
         local selectedName = _G.EggAuto_SelectedPos
         if not _G.EggAuto_LockPosEnabled or not selectedName then return end
@@ -313,9 +358,9 @@ local function startLockPosition()
 
         local root = getRoot()
         if root then
-            -- Chỉ cần lệch chút là quay lại ngay
+            -- LỆCH > 0.2 studs = QUAY LẠI NGAY!
             local distance = (root.Position - targetPos.Position).Magnitude
-            if distance > 0.5 then  -- Giảm ngưỡng = khóa chặt hơn
+            if distance > LOCK_DISTANCE_THRESHOLD then
                 root.CFrame = targetPos
             end
         end
@@ -347,15 +392,7 @@ local function startAutoLoop()
 
             local root = getRoot()
             if root then
-                local tweenTime = calculateTweenTime(root.CFrame, target)
-                local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-                local goal = {CFrame = target}
-                local tween = TweenService:Create(root, tweenInfo, goal)
-                tween:Play()
-                tween.Completed:Wait()
-                if _G.EggAuto_AutoEnabled then
-                    root.CFrame = target
-                end
+                root.CFrame = target  -- Dịch chuyển thẳng nhanh nhất, không cần tween chậm
             end
         end
     end)
@@ -450,13 +487,28 @@ lockBtn.MouseButton1Click:Connect(function()
         end
         lockBtn.Text = "🟢 ĐANG LOCK VỊ TRÍ"
         lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
-        -- startLockPosition() sẽ tự động dịch chuyển ngay về vị trí
         startLockPosition()
     else
         lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
         lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
         status.Text = "🔓 Lock đã tắt"
         stopLockPosition()
+    end
+end)
+
+-- ============ BẬT/TẮT BẤT TỬ ============
+godBtn.MouseButton1Click:Connect(function()
+    _G.EggAuto_GodModeEnabled = not _G.EggAuto_GodModeEnabled
+    if _G.EggAuto_GodModeEnabled then
+        godBtn.Text = "💛 ĐANG BẤT TỬ"
+        godBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 0)
+        status.Text = "✨ Bất tử đã bật\nMáu luôn đầy!"
+        startGodMode()
+    else
+        godBtn.Text = "🟡 BẬT BẤT TỬ"
+        godBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 0)
+        status.Text = "❌ Bất tử đã tắt"
+        stopGodMode()
     end
 end)
 
@@ -475,20 +527,28 @@ keySpamBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ============ KHI RESPAWN ============
+-- ============ KHI RESPAWN → TỰ BẬT LẠI BẤT TỬ + LOCK ============
 player.CharacterAdded:Connect(function(newChar)
     newChar:WaitForChild("HumanoidRootPart")
-    local selected = _G.EggAuto_SelectedPos
-    if _G.EggAuto_AutoEnabled and selected and _G.EggAuto_Positions[selected] then
-        status.Text = "♻️ Đang tiếp tục..."
-        task.wait(1)
-        status.Text = "✅ Auto: " .. selected .. "\n⏱️ Mỗi " .. currentDelay .. "s quay lại"
-        startAutoLoop()
+    newChar:WaitForChild("Humanoid")
+
+    -- Tự bật lại Bất tử
+    if _G.EggAuto_GodModeEnabled then
+        task.wait(0.3)
+        startGodMode()
     end
-    -- Khi respawn + Lock đang bật → tự động dịch chuyển ngay về vị trí
+
+    -- Tự quay về vị trí cũ nếu Lock đang bật
+    local selected = _G.EggAuto_SelectedPos
     if _G.EggAuto_LockPosEnabled and selected and _G.EggAuto_Positions[selected] then
         task.wait(0.5)
         startLockPosition()
+    end
+
+    -- Tự tiếp tục Auto
+    if _G.EggAuto_AutoEnabled and selected and _G.EggAuto_Positions[selected] then
+        task.wait(1)
+        startAutoLoop()
     end
 end)
 
@@ -505,7 +565,6 @@ end
 if _G.EggAuto_AutoEnabled and selected and _G.EggAuto_Positions[selected] then
     autoBtn.Text = "🟢 ĐANG AUTO QUAY LẠI"
     autoBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
-    status.Text = "✅ Auto: " .. selected .. "\n⏱️ Mỗi " .. currentDelay .. "s quay lại"
     startAutoLoop()
 end
 if _G.EggAuto_LockPosEnabled and selected and _G.EggAuto_Positions[selected] then
@@ -513,11 +572,17 @@ if _G.EggAuto_LockPosEnabled and selected and _G.EggAuto_Positions[selected] the
     lockBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 255)
     startLockPosition()
 end
+if _G.EggAuto_GodModeEnabled then
+    godBtn.Text = "💛 ĐANG BẤT TỬ"
+    godBtn.BackgroundColor3 = Color3.fromRGB(255, 220, 0)
+    startGodMode()
+end
 if _G.EggAuto_KeySpamEnabled then
     keySpamBtn.Text = "🟡 ĐANG NHẤN PHÍM"
     keySpamBtn.BackgroundColor3 = Color3.fromRGB(220, 220, 50)
     startKeySpamLoop()
 end
 
-print("✅ EggAuto Menu đã load!")
-print("⚡ BẬT LOCK = LẬP TỨC VỀ VỊ TRÍ + KHÓA LIÊN TỤC")
+print("✅ EggAuto + GOD MODE đã load!")
+print("✨ BẤT TỬ = Máu luôn đầy, không chết")
+print("⚡ LOCK = Lập tức về + khóa cực chặt")
