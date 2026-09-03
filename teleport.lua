@@ -20,6 +20,15 @@ if _G.SailoPeace_LockPosition == nil then
     _G.SailoPeace_LockPosition = false
 end
 
+-- Danh sách nhiều vị trí đã lưu
+if _G.SailoPeace_SavedPositions == nil then
+    _G.SailoPeace_SavedPositions = {}
+end
+
+if _G.SailoPeace_SelectedPosition == nil then
+    _G.SailoPeace_SelectedPosition = 1
+end
+
 local currentDelay = 10  -- mặc định 30 giây
 local TWEEN_SPEED = 300  -- studs per second
 local minRandomDelay = 0.02  -- min random delay
@@ -37,7 +46,7 @@ end
 -- Hàm tính thời gian tween dựa trên khoảng cách
 local function calculateTweenTime(fromCFrame, toCFrame)
     local distance = (fromCFrame.Position - toCFrame.Position).Magnitude
-    return distance / TWEEN_SPEED
+    return math.clamp(distance / SAFE_TWEEN_SPEED, MIN_TWEEN_TIME, MAX_TWEEN_TIME)
 end
 
 -- Hàm ấn phím (tương tự KeyPress)
@@ -61,7 +70,7 @@ screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 300, 0, 370)  -- Tăng chiều cao thêm
+mainFrame.Size = UDim2.new(0, 320, 0, 455)  -- Thêm khu vực quản lý nhiều vị trí
 mainFrame.Position = UDim2.new(0.5, -150, 0.4, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
@@ -89,10 +98,29 @@ saveBtn.TextColor3 = Color3.new(1,1,1)
 saveBtn.TextScaled = true
 saveBtn.Parent = mainFrame
 
+-- Dropdown chọn điểm đến
+local positionDropdown = Instance.new("TextButton")
+positionDropdown.Size = UDim2.new(0.9, 0, 0, 42)
+positionDropdown.Position = UDim2.new(0.05, 0, 0, 105)
+positionDropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+positionDropdown.Text = "📍 Điểm đến: Chưa có"
+positionDropdown.TextColor3 = Color3.new(1,1,1)
+positionDropdown.TextScaled = true
+positionDropdown.Parent = mainFrame
+
+local positionOptionsFrame = Instance.new("Frame")
+positionOptionsFrame.Size = UDim2.new(1, 0, 0, 0)
+positionOptionsFrame.Position = UDim2.new(0, 0, 1, 5)
+positionOptionsFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+positionOptionsFrame.BorderSizePixel = 0
+positionOptionsFrame.Visible = false
+positionOptionsFrame.ZIndex = 20
+positionOptionsFrame.Parent = positionDropdown
+
 -- Dropdown chọn thời gian
 local dropdown = Instance.new("TextButton")
 dropdown.Size = UDim2.new(0.9, 0, 0, 45)
-dropdown.Position = UDim2.new(0.05, 0, 0, 110)
+dropdown.Position = UDim2.new(0.05, 0, 0, 155)
 dropdown.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 dropdown.Text = "⏱️ Thời gian delay: 30 giây"
 dropdown.TextColor3 = Color3.new(1,1,1)
@@ -143,7 +171,7 @@ end)
 -- Nút Bật/Tắt Auto Teleport
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0.9, 0, 0, 45)
-toggleBtn.Position = UDim2.new(0.05, 0, 0, 165)
+toggleBtn.Position = UDim2.new(0.05, 0, 0, 210)
 toggleBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
 toggleBtn.Text = "🔴 BẬT AUTO BAY VỀ"
 toggleBtn.TextColor3 = Color3.new(1,1,1)
@@ -153,7 +181,7 @@ toggleBtn.Parent = mainFrame
 -- Nút Lock Position (chống game teleport)
 local lockBtn = Instance.new("TextButton")
 lockBtn.Size = UDim2.new(0.9, 0, 0, 45)
-lockBtn.Position = UDim2.new(0.05, 0, 0, 220)
+lockBtn.Position = UDim2.new(0.05, 0, 0, 265)
 lockBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 200)
 lockBtn.Text = "🟣 BẬT LOCK VỊ TRÍ"
 lockBtn.TextColor3 = Color3.new(1,1,1)
@@ -163,7 +191,7 @@ lockBtn.Parent = mainFrame
 -- Nút Bật/Tắt Auto Key Spam
 local keySpamBtn = Instance.new("TextButton")
 keySpamBtn.Size = UDim2.new(0.9, 0, 0, 45)
-keySpamBtn.Position = UDim2.new(0.05, 0, 0, 275)
+keySpamBtn.Position = UDim2.new(0.05, 0, 0, 320)
 keySpamBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 50)
 keySpamBtn.Text = "🟠 BẬT AUTO KEY SPAM"
 keySpamBtn.TextColor3 = Color3.new(1,1,1)
@@ -173,7 +201,7 @@ keySpamBtn.Parent = mainFrame
 -- Status label
 local status = Instance.new("TextLabel")
 status.Size = UDim2.new(0.9, 0, 0, 45)
-status.Position = UDim2.new(0.05, 0, 0, 330)
+status.Position = UDim2.new(0.05, 0, 0, 375)
 status.BackgroundTransparency = 1
 status.Text = "Trạng thái: Chưa lưu vị trí\n"
 status.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -193,9 +221,14 @@ local function startLockPosition()
         
         local root = getRoot()
         if root then
-            -- Nếu vị trí lệch quá 5 studs, teleport lại
+            -- Không snap liên tục: chỉ sửa khi lệch xa và có cooldown.
             local distance = (root.Position - _G.SailoPeace_SavedCFrame.Position).Magnitude
-            if distance > 5 then
+            local now = os.clock()
+
+            if distance > LOCK_DISTANCE and (now - lastLockFix) >= LOCK_COOLDOWN then
+                lastLockFix = now
+                root.AssemblyLinearVelocity = Vector3.zero
+                root.AssemblyAngularVelocity = Vector3.zero
                 root.CFrame = _G.SailoPeace_SavedCFrame
             end
         end
@@ -265,14 +298,79 @@ local function startKeySpamLoop()
     end)
 end
 
+-- ============ QUẢN LÝ NHIỀU VỊ TRÍ ============
+local function refreshPositionDropdown()
+    for _, child in ipairs(positionOptionsFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    local count = #_G.SailoPeace_SavedPositions
+    if count == 0 then
+        positionDropdown.Text = "📍 Điểm đến: Chưa có"
+        positionOptionsFrame.Size = UDim2.new(1, 0, 0, 40)
+        return
+    end
+
+    if _G.SailoPeace_SelectedPosition < 1 or _G.SailoPeace_SelectedPosition > count then
+        _G.SailoPeace_SelectedPosition = 1
+    end
+
+    positionDropdown.Text = "📍 Điểm đến: Vị trí " .. _G.SailoPeace_SelectedPosition
+
+    for i = 1, count do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 38)
+        btn.Position = UDim2.new(0, 0, 0, (i - 1) * 38)
+        btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        btn.Text = "📍 Vị trí " .. i
+        btn.TextColor3 = Color3.new(1,1,1)
+        btn.TextScaled = true
+        btn.ZIndex = 21
+        btn.Parent = positionOptionsFrame
+
+        btn.MouseButton1Click:Connect(function()
+            _G.SailoPeace_SelectedPosition = i
+            _G.SailoPeace_SavedCFrame = _G.SailoPeace_SavedPositions[i]
+            positionDropdown.Text = "📍 Điểm đến: Vị trí " .. i
+            positionOptionsFrame.Visible = false
+            status.Text = "📍 Đã chọn Vị trí " .. i .. "\nSẵn sàng Auto"
+        end)
+    end
+
+    positionOptionsFrame.Size = UDim2.new(1, 0, 0, count * 38)
+end
+
+positionDropdown.MouseButton1Click:Connect(function()
+    if #_G.SailoPeace_SavedPositions == 0 then
+        status.Text = "❌ Chưa có vị trí nào được lưu"
+        return
+    end
+
+    positionOptionsFrame.Visible = not positionOptionsFrame.Visible
+    if positionOptionsFrame.Visible then
+        refreshPositionDropdown()
+    end
+end)
+
 -- ============ LƯU VỊ TRÍ ============
 saveBtn.MouseButton1Click:Connect(function()
     local root = getRoot()
     if root then
-        _G.SailoPeace_SavedCFrame = root.CFrame
-        status.Text = "✅ Đã lưu vị trí!\nSẵn sàng Auto"
+        local newPosition = root.CFrame
+        table.insert(_G.SailoPeace_SavedPositions, newPosition)
+
+        _G.SailoPeace_SelectedPosition = #_G.SailoPeace_SavedPositions
+        _G.SailoPeace_SavedCFrame = newPosition
+
+        refreshPositionDropdown()
+
+        status.Text = "✅ Đã lưu Vị trí " .. _G.SailoPeace_SelectedPosition ..
+            "\nTổng: " .. #_G.SailoPeace_SavedPositions .. " vị trí"
+
         task.wait(1.5)
-        status.Text = "Trạng thái: Sẵn sàng Auto"
+        status.Text = "📍 Điểm đến: Vị trí " .. _G.SailoPeace_SelectedPosition
     end
 end)
 
@@ -354,6 +452,14 @@ player.CharacterAdded:Connect(function(newCharacter)
 end)
 
 -- ============ ĐỒNG BỘ TRẠNG THÁI ============
+if #_G.SailoPeace_SavedPositions > 0 then
+    if _G.SailoPeace_SelectedPosition < 1 or _G.SailoPeace_SelectedPosition > #_G.SailoPeace_SavedPositions then
+        _G.SailoPeace_SelectedPosition = 1
+    end
+    _G.SailoPeace_SavedCFrame = _G.SailoPeace_SavedPositions[_G.SailoPeace_SelectedPosition]
+    refreshPositionDropdown()
+end
+
 if _G.SailoPeace_IsAutoEnabled and _G.SailoPeace_SavedCFrame then
     toggleBtn.Text = "🟢 ĐANG AUTO BAY VỀ"
     toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 220, 50)
@@ -377,7 +483,8 @@ if _G.SailoPeace_KeySpamEnabled then
     startKeySpamLoop()
 end
 
-print("✅ Sailo Peace Auto Teleport + KeySpam + Lock Position đã load!")
+print("✅ Teleport + KeySpam + Lock Position đã load!")
+print("🛡️ Anti-reset: tween 90 studs/s, lock không snap liên tục")
 print("🎮 Auto Bay Về: Click nút xanh")
 print("🔒 Lock Vị Trí: Click nút tím (chống game teleport về vị trí mặc định)")
 print("⌨️ Auto Key Spam: Click nút cam")
